@@ -1,0 +1,465 @@
+> paquetes_requeridos <- c(
++   "dplyr", "tidyr", "stringr", "readr", "ggplot2", "janitor", "visdat",
++   "purrr", "skimr", "moments", "patchwork", "ggcorrplot", "FactoMineR", "factoextra"
++ )
+> paquetes_faltantes <- paquetes_requeridos[!vapply(paquetes_requeridos, requireNamespace, logical(1), quietly = TRUE)]
+> if (length(paquetes_faltantes) > 0) {
++   stop("Faltan paquetes por instalar/cargar: ", paste(paquetes_faltantes, collapse = ", "))
++ }
+> # 1. LECTURA DEL DATASET CRUDO
+> # Se fuerza la lectura como 'character' para evitar parsing incorrecto de formatos.
+> file_path <- "Base de datos/Calidad_del_agua_del_Rio_Cauca_20260419.csv"
+> raw_data <- readr::read_csv(file_path,col_types = readr::cols(.default = "c")
++ )
+                                                                                                                                              
+> # 2. AUDITORÍA INICIAL DE LA BASE DE DATOS
+> cat("--- Dimensiones del dataset original ---\n")
+--- Dimensiones del dataset original ---
+> print(dim(raw_data))
+[1] 2368   56
+> # 3. LIMPIEZA Y NORMALIZACIÓN DE NOMBRES
+> # Estandarización a snake_case.
+> df_prep <- raw_data %>%
++   clean_names(replace = c("µ" = "micro", "°" = "grados"))
+> # 4. CONVERSIÓN DE VARIABLES NUMÉRICAS
+> # Corrección robusta para formatos atípicos (*10E, separador decimal con coma).
+> fix_scientific_pro <- function(x) {
++   if (is.character(x)) {
++     x <- gsub("\\s+", "", x)
++     x <- gsub("\\*10E", "e", x)
++     x <- gsub(",", ".", x)
++     x <- as.numeric(x)
++   }
++   return(x)
++ }
+> df_clean <- df_prep %>%
++   mutate(across(-c(estaciones, fecha_de_muestreo), fix_scientific_pro))
+Aviso:
+There were 39 warnings in `mutate()`.
+The first warning was:
+ℹ In argument: `across(-c(estaciones, fecha_de_muestreo), fix_scientific_pro)`.
+Caused by warning:
+! NAs introducidos por coerción
+ℹ Run dplyr::last_dplyr_warnings() to see the 38 remaining warnings. 
+> # 5. CONSTRUCCIÓN DEL IDENTIFICADOR TEMPORAL (ANIO_ESTACION)
+> # Justificación metodológica: Diferenciar individuos espaciotemporales combinando 
+> # año y estación. Esto previene que mediciones de distintos años en una misma 
+> # estación se interpreten equívocamente como el mismo "individuo" en el plano.
+> df_clean <- df_clean %>%
++   mutate(
++     anio = stringr::str_sub(fecha_de_muestreo, 1, 4),
++     anio_estacion = paste(anio, estaciones, sep = "_")
++   )
+> cat("\n--- Verificación del nuevo identificador 'anio_estacion' ---\n")
+
+--- Verificación del nuevo identificador 'anio_estacion' ---
+> print(head(df_clean %>% select(anio_estacion, estaciones, fecha_de_muestreo)))
+# A tibble: 6 × 3
+  anio_estacion         estaciones       fecha_de_muestreo      
+  <chr>                 <chr>            <chr>                  
+1 1998_YOTOCO           YOTOCO           1998 Dec 19 12:00:00 AM
+2 1998_MEDIACANOA       MEDIACANOA       1998 Dec 19 12:00:00 AM
+3 1998_PASO DE LA TORRE PASO DE LA TORRE 1998 Dec 19 12:00:00 AM
+4 1990_ANTES SUAREZ     ANTES SUAREZ     1990 May 09 12:00:00 AM
+5 1990_ANTES RIO OVEJAS ANTES RIO OVEJAS 1990 Jan 10 12:00:00 AM
+6 1990_ANTES RIO TIMBA  ANTES RIO TIMBA  1990 May 09 12:00:00 AM
+> # 6. AUDITORÍA DE VALORES FALTANTES
+> missing_report <- df_clean %>%
++   summarise(across(everything(), ~ mean(is.na(.)) * 100)) %>%
++   pivot_longer(everything(), names_to = "variable", values_to = "pct_na") %>%
++   arrange(desc(pct_na))
+> cat("\n--- Top 10 variables con mayor porcentaje de NAs ---\n")
+
+--- Top 10 variables con mayor porcentaje de NAs ---
+> print(head(missing_report, 10))
+# A tibble: 10 × 2
+   variable                   pct_na
+   <chr>                       <dbl>
+ 1 hierro_disuelto_mg_fe_l       100
+ 2 manganeso_disuelto_mg_mn_l    100
+ 3 sodio_disuelto_mg_na_l        100
+ 4 potasio_disuelto_mg_k_l       100
+ 5 cobre_disuelto_mg_cu_l        100
+ 6 zinc_disuelto_mg_zn_l         100
+ 7 cianuros_microg_cn_l          100
+ 8 fluoruros_mg_f_l              100
+ 9 sulfuros_mg_s_2_l             100
+10 silice_mg_si_l                100
+> # 7. SELECCIÓN METODOLÓGICA DE VARIABLES ACTIVAS PARA ACP
+> # Justificación de la reducción: Se seleccionan 7 variables activas descartando 
+> # p_h, temperatura_c y cloruros_mg_cl_l. Esto disminuye el ruido factorial al 
+> # retirar variables con representaciones históricamente bajas o marginales en 
+> # los componentes principales. La nueva matriz mejora la interpretabilidad y se 
+> # enfoca directamente en marcadores fuertes de contaminación orgánica y química.
+> variables_acp <- c(
++   "turbiedad_unt", 
++   "solidos_suspendidos_totales_mg_ss_l",
++   "demanda_bioquimica_de_oxigeno_mg_o2_l", 
++   "demanda_quimica_de_oxigeno_mg_o2_l",
++   "oxigeno_disuelto_mg_o2_l", 
++   "conductividad_electrica_micro_s_cm",
++   "fosforo_total_mg_p_l"
++ )
+> # Se retienen anio_estacion y estaciones para uso cualitativo/identificador.
+> df_analisis <- df_clean %>% select(anio_estacion, estaciones, all_of(variables_acp))
+> # 8. PUNTO A: ESTADÍSTICAS DESCRIPTIVAS
+> tabla_descriptivos <- df_analisis %>%
++   summarise(across(where(is.numeric), list(
++     n      = ~sum(!is.na(.)),
++     media  = ~mean(., na.rm = TRUE),
++     sd     = ~sd(., na.rm = TRUE),
++     min    = ~min(., na.rm = TRUE),
++     max    = ~max(., na.rm = TRUE),
++     skew   = ~skewness(., na.rm = TRUE)
++   ))) %>%
++   pivot_longer(everything(), names_to = "metrica", values_to = "valor") %>%
++   separate(metrica, into = c("variable", "estadistico"), sep = "_(?=[^_]+$)") %>%
++   pivot_wider(names_from = estadistico, values_from = valor) %>%
++   mutate(cv_pct = (sd / media) * 100)
+> cat("\n--- Punto A: Estadísticos Descriptivos (Variables Seleccionadas) ---\n")
+
+--- Punto A: Estadísticos Descriptivos (Variables Seleccionadas) ---
+> print(tabla_descriptivos %>% mutate(across(where(is.numeric), ~round(.x, 2))))
+# A tibble: 7 × 8
+  variable                                  n  media     sd   min    max  skew cv_pct
+  <chr>                                 <dbl>  <dbl>  <dbl> <dbl>  <dbl> <dbl>  <dbl>
+1 turbiedad_unt                          2185 128.   169.    1    1900    2.9   132. 
+2 solidos_suspendidos_totales_mg_ss_l    2297 161.   199.    1.2  2112    3.13  124. 
+3 demanda_bioquimica_de_oxigeno_mg_o2_l  2203   5.94  19.1   0.1   427   12.2   322. 
+4 demanda_quimica_de_oxigeno_mg_o2_l     2134  30.2   37.9   1.46  706    6.9   125. 
+5 oxigeno_disuelto_mg_o2_l               2289   4.7    9.39  0     216   14.7   200. 
+6 conductividad_electrica_micro_s_cm     2305 123.   106.    0    4259   28.1    85.5
+7 fosforo_total_mg_p_l                   1850   0.3    0.88  0      14.2  9.64  293. 
+> # 9. PUNTO A: GRÁFICOS EXPLORATORIOS
+> plot_distribucion <- function(data, grupo_vars, titulo) {
++   data %>%
++     select(all_of(grupo_vars)) %>%
++     pivot_longer(everything(), names_to = "variable", values_to = "valor") %>%
++     ggplot(aes(x = valor)) +
++     geom_histogram(aes(y = after_stat(density)), fill = "steelblue", color = "white", alpha = 0.7) +
++     geom_density(color = "darkred", linewidth = 1) +
++     facet_wrap(~variable, scales = "free") +
++     theme_minimal() + labs(title = titulo, x = "Valor", y = "Densidad")
++ }
+> # División en dos bloques para facilitar lectura.
+> p1_a <- plot_distribucion(df_analisis, variables_acp[1:4], "Distribuciones Físico-Químicas (Grupo A)")
+> p1_b <- plot_distribucion(df_analisis, variables_acp[5:7], "Distribuciones Físico-Químicas (Grupo B)")
+> print(p1_a); print(p1_b)
+`stat_bin()` using `bins = 30`. Pick better value `binwidth`.
+Avisos:
+1: Removed 653 rows containing non-finite outside the scale range (`stat_bin()`). 
+2: Removed 653 rows containing non-finite outside the scale range (`stat_density()`). 
+`stat_bin()` using `bins = 30`. Pick better value `binwidth`.
+Avisos:
+1: Removed 660 rows containing non-finite outside the scale range (`stat_bin()`). 
+2: Removed 660 rows containing non-finite outside the scale range (`stat_density()`). 
+> # 10. PUNTO A: AUDITORÍA DE VALORES ATÍPICOS (CRITERIO TUKEY)
+> outlier_audit <- df_analisis %>%
++   select(where(is.numeric)) %>%
++   purrr::map_df(~{
++     q1 <- quantile(.x, 0.25, na.rm = TRUE); q3 <- quantile(.x, 0.75, na.rm = TRUE)
++     iqr <- q3 - q1
++     list(n_out = sum(.x < (q1-1.5*iqr) | .x > (q3+1.5*iqr), na.rm = TRUE))
++   }, .id = "variable")
+> # 11. PUNTO A: DIAGNÓSTICO DE TRANSFORMACIONES
+> # Aplicación de log1p para variables con asimetría positiva severa (skew > 2).
+> diagnostico <- tabla_descriptivos %>%
++   left_join(outlier_audit, by = "variable") %>%
++   mutate(accion = case_when(
++     skew > 2 ~ "Transformación log1p",
++     TRUE ~ "Mantener Original (Estandarizar)"
++   ))
+> cat("\n--- Punto A: Diagnóstico de Transformaciones Analíticas ---\n")
+
+--- Punto A: Diagnóstico de Transformaciones Analíticas ---
+> print(diagnostico %>% select(variable, skew, n_out, accion))
+# A tibble: 7 × 4
+  variable                               skew n_out accion              
+  <chr>                                 <dbl> <int> <chr>               
+1 turbiedad_unt                          2.90   216 Transformación log1p
+2 solidos_suspendidos_totales_mg_ss_l    3.13   159 Transformación log1p
+3 demanda_bioquimica_de_oxigeno_mg_o2_l 12.2    152 Transformación log1p
+4 demanda_quimica_de_oxigeno_mg_o2_l     6.90   201 Transformación log1p
+5 oxigeno_disuelto_mg_o2_l              14.7     35 Transformación log1p
+6 conductividad_electrica_micro_s_cm    28.1     15 Transformación log1p
+7 fosforo_total_mg_p_l                   9.64    95 Transformación log1p
+> # 12. PUNTO A: DATASET DEPURADO PARA ACP
+> vars_log <- diagnostico %>% filter(accion == "Transformación log1p") %>% pull(variable)
+> df_final_acp <- df_analisis %>%
++   mutate(across(all_of(vars_log), ~ log1p(.x))) %>%
++   drop_na()
+> cat("\n--- Resumen de matriz activa tras depuración (Casewise deletion) ---\n")
+
+--- Resumen de matriz activa tras depuración (Casewise deletion) ---
+> cat("N final:", nrow(df_final_acp), "filas (", round((nrow(df_final_acp)/nrow(df_analisis))*100, 2), "% conservado)\n")
+N final: 1475 filas ( 62.29 % conservado)
+> # 13. PUNTO A: MATRIZ DE CORRELACIÓN Y CORRELOGRAMA
+> matriz_cor <- df_final_acp %>% select(where(is.numeric)) %>% cor(method = "pearson")
+> cat("\n--- Punto A: Matriz de Correlación (Datos transformados, redondeada a 2 dec) ---\n")
+
+--- Punto A: Matriz de Correlación (Datos transformados, redondeada a 2 dec) ---
+> print(round(matriz_cor, 2))
+                                      turbiedad_unt solidos_suspendidos_totales_mg_ss_l demanda_bioquimica_de_oxigeno_mg_o2_l
+turbiedad_unt                                  1.00                                0.80                                  0.09
+solidos_suspendidos_totales_mg_ss_l            0.80                                1.00                                  0.21
+demanda_bioquimica_de_oxigeno_mg_o2_l          0.09                                0.21                                  1.00
+demanda_quimica_de_oxigeno_mg_o2_l             0.23                                0.38                                  0.15
+oxigeno_disuelto_mg_o2_l                       0.15                                0.10                                 -0.20
+conductividad_electrica_micro_s_cm            -0.06                                0.07                                  0.23
+fosforo_total_mg_p_l                           0.10                                0.23                                  0.60
+                                      demanda_quimica_de_oxigeno_mg_o2_l oxigeno_disuelto_mg_o2_l conductividad_electrica_micro_s_cm
+turbiedad_unt                                                       0.23                     0.15                              -0.06
+solidos_suspendidos_totales_mg_ss_l                                 0.38                     0.10                               0.07
+demanda_bioquimica_de_oxigeno_mg_o2_l                               0.15                    -0.20                               0.23
+demanda_quimica_de_oxigeno_mg_o2_l                                  1.00                    -0.27                               0.24
+oxigeno_disuelto_mg_o2_l                                           -0.27                     1.00                              -0.54
+conductividad_electrica_micro_s_cm                                  0.24                    -0.54                               1.00
+fosforo_total_mg_p_l                                               -0.01                     0.16                              -0.01
+                                      fosforo_total_mg_p_l
+turbiedad_unt                                         0.10
+solidos_suspendidos_totales_mg_ss_l                   0.23
+demanda_bioquimica_de_oxigeno_mg_o2_l                 0.60
+demanda_quimica_de_oxigeno_mg_o2_l                   -0.01
+oxigeno_disuelto_mg_o2_l                              0.16
+conductividad_electrica_micro_s_cm                   -0.01
+fosforo_total_mg_p_l                                  1.00
+> p_heatmap <- ggcorrplot(matriz_cor, hc.order = TRUE, type = "lower", lab = TRUE,
++                         title = "Matriz de Correlación: Espacio de Variables")
+> print(p_heatmap)
+> # 14. EJECUCIÓN DEL ACP NORMADO
+> # Justificación: scale.unit = TRUE es obligatorio al tener métricas distintas (mg/L, UNT, mS/cm).
+> # quali.sup = 1:2 proyecta anio_estacion y estaciones sin influir en la creación de los ejes.
+> res_pca <- FactoMineR::PCA(df_final_acp, quali.sup = 1:2, scale.unit = TRUE, graph = FALSE)
+> # 15. ANÁLISIS DE VALORES PROPIOS E INERCIA
+> eigen_values <- res_pca$eig
+> cat("\n--- Tabla de Valores Propios e Inercia Capturada ---\n")
+
+--- Tabla de Valores Propios e Inercia Capturada ---
+> print(round(eigen_values, 3))
+       eigenvalue percentage of variance cumulative percentage of variance
+comp 1      2.210                 31.568                            31.568
+comp 2      1.780                 25.431                            56.999
+comp 3      1.410                 20.148                            77.147
+comp 4      0.670                  9.565                            86.712
+comp 5      0.466                  6.659                            93.371
+comp 6      0.296                  4.224                            97.594
+comp 7      0.168                  2.406                           100.000
+> p_scree <- factoextra::fviz_eig(res_pca, addlabels = TRUE, ylim = c(0, 60),
++                                 title = "Scree Plot: Sedimentación de la Varianza")
+> print(p_scree)
+> kaiser_n <- sum(eigen_values[, 1] > 1)
+> cat("\n[Justificación] Retención de componentes: Según Kaiser (Lambda > 1), se retienen", kaiser_n, "componentes.\n")
+
+[Justificación] Retención de componentes: Según Kaiser (Lambda > 1), se retienen 3 componentes.
+> # 16. PUNTO B: NUBE DE INDIVIDUOS
+> p_ind <- factoextra::fviz_pca_ind(res_pca, geom.ind = "point", col.ind = "cos2", 
++                                   gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
++                                   title = "Nube de Individuos: Plano Factorial 1-2")
+> print(p_ind)
+> ind_res <- factoextra::get_pca_ind(res_pca)
+> df_individuos <- data.frame(
++   Anio_Estacion = df_final_acp$anio_estacion,
++   Dim1 = ind_res$coord[, 1],
++   Dim2 = ind_res$coord[, 2],
++   Cos2_Plano = rowSums(ind_res$cos2[, 1:2]),
++   Contrib_Dim1 = ind_res$contrib[, 1]
++ ) %>% arrange(desc(Cos2_Plano))
+> cat("\n--- Punto B: Top 5 Individuos mejor representados en el plano (Mayor Cos2) ---\n")
+
+--- Punto B: Top 5 Individuos mejor representados en el plano (Mayor Cos2) ---
+> print(head(df_individuos, 5))
+              Anio_Estacion      Dim1       Dim2 Cos2_Plano Contrib_Dim1
+1153      2013_ANTES SUAREZ -2.144999  1.3747095  0.9916563   0.14116371
+1049 2011_PASO DEL COMERCIO  1.929467  1.6950652  0.9846092   0.11422044
+444  1997_PUENTE HORMIGUERO -2.189792  1.3409485  0.9778629   0.14712105
+517   1998_ANTES RIO OVEJAS -4.092717 -0.4605339  0.9760133   0.51391624
+641   2000_PASO DE LA BOLSA -1.714083  1.4687588  0.9719718   0.09014317
+> # 17. PUNTO C: CÍRCULO DE CORRELACIONES
+> p_var <- factoextra::fviz_pca_var(res_pca, col.var = "contrib",
++                                   gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
++                                   repel = TRUE, title = "Círculo de Correlaciones: Plano 1-2")
+> print(p_var)
+> # 18. PUNTO D: BIPLOT E IDENTIFICACIÓN DE POSIBLES ATÍPICOS
+> p_biplot <- factoextra::fviz_pca_biplot(res_pca, geom.ind = "point", pointsize = 1.5,
++                                         alpha.ind = 0.5, col.var = "black", repel = TRUE,
++                                         title = "Biplot: Relación dual Individuos - Variables")
+> print(p_biplot)
+> # Atípicos definidos geométricamente por su lejanía al centro de gravedad.
+> df_atipicos <- data.frame(
++   Anio_Estacion = df_final_acp$anio_estacion,
++   Estacion = df_final_acp$estaciones,
++   Dim1 = ind_res$coord[, 1],
++   Dim2 = ind_res$coord[, 2],
++   Dist_Origen = rowSums(ind_res$coord[, 1:2]^2),
++   Cos2_Plano = rowSums(ind_res$cos2[, 1:2])
++ ) %>% 
++   arrange(desc(Dist_Origen)) %>%
++   mutate(across(where(is.numeric), ~round(.x, 3)))
+> cat("\n--- Punto D: Top 10 Posibles Atípicos Factoriales (Mayor distancia al origen) ---\n")
+
+--- Punto D: Top 10 Posibles Atípicos Factoriales (Mayor distancia al origen) ---
+> print(head(df_atipicos, 10))
+                  Anio_Estacion              Estacion   Dim1   Dim2 Dist_Origen Cos2_Plano
+157              1993_JUANCHITO             JUANCHITO -3.216  6.571      53.519      0.393
+1007            2010_MEDIACANOA            MEDIACANOA  4.819  4.587      44.265      0.329
+1002     2010_PASO DEL COMERCIO     PASO DEL COMERCIO  4.734  4.277      40.700      0.317
+1003         2010_PUERTO ISAACS         PUERTO ISAACS  4.691  4.267      40.219      0.313
+1001             2010_JUANCHITO             JUANCHITO  3.500  5.149      38.761      0.297
+1006                2010_YOTOCO                YOTOCO  4.478  4.081      36.700      0.274
+11   1990_ANTES INTERCEPTOR SUR ANTES INTERCEPTOR SUR  4.575 -3.844      35.708      0.740
+225      1994_PASO DEL COMERCIO     PASO DEL COMERCIO  5.086 -2.800      33.702      0.753
+316                2010_ANACARO               ANACARO  4.887  3.125      33.653      0.240
+120        1992_ANTES RIO TIMBA       ANTES RIO TIMBA -4.925  3.058      33.600      0.554
+> # 19. PUNTO E: SÍNTESIS CON CONTRIBUCIONES Y COSENOS CUADRADOS
+> var_res <- factoextra::get_pca_var(res_pca)
+> generar_tabla_sintesis <- function(res, dim_n) {
++   data.frame(
++     Variable = rownames(res$coord),
++     Coord = res$coord[, dim_n],
++     Contrib = res$contrib[, dim_n],
++     Cos2 = res$cos2[, dim_n]
++   ) %>% arrange(desc(Contrib)) %>% 
++     mutate(across(where(is.numeric), ~round(.x, 3)))
++ }
+> # Referencia esperada de contribución para variables = 100 / p = 100 / 7 = ~14.28%
+> cat("\n[Criterio] Aporte promedio esperado por variable (100/p):", round(100/length(variables_acp), 2), "%\n")
+
+[Criterio] Aporte promedio esperado por variable (100/p): 14.29 %
+> cat("\n--- Punto E: Síntesis de Variables (Dimensión 1) ---\n")
+
+--- Punto E: Síntesis de Variables (Dimensión 1) ---
+> print(generar_tabla_sintesis(var_res, 1))
+                                                                   Variable  Coord Contrib  Cos2
+solidos_suspendidos_totales_mg_ss_l     solidos_suspendidos_totales_mg_ss_l  0.846  32.358 0.715
+turbiedad_unt                                                 turbiedad_unt  0.720  23.453 0.518
+demanda_bioquimica_de_oxigeno_mg_o2_l demanda_bioquimica_de_oxigeno_mg_o2_l  0.589  15.712 0.347
+demanda_quimica_de_oxigeno_mg_o2_l       demanda_quimica_de_oxigeno_mg_o2_l  0.547  13.519 0.299
+fosforo_total_mg_p_l                                   fosforo_total_mg_p_l  0.491  10.913 0.241
+conductividad_electrica_micro_s_cm       conductividad_electrica_micro_s_cm  0.277   3.477 0.077
+oxigeno_disuelto_mg_o2_l                           oxigeno_disuelto_mg_o2_l -0.112   0.568 0.013
+> cat("\n--- Punto E: Síntesis de Variables (Dimensión 2) ---\n")
+
+--- Punto E: Síntesis de Variables (Dimensión 2) ---
+> print(generar_tabla_sintesis(var_res, 2))
+                                                                   Variable  Coord Contrib  Cos2
+oxigeno_disuelto_mg_o2_l                           oxigeno_disuelto_mg_o2_l  0.854  41.015 0.730
+conductividad_electrica_micro_s_cm       conductividad_electrica_micro_s_cm -0.766  32.983 0.587
+turbiedad_unt                                                 turbiedad_unt  0.430  10.381 0.185
+demanda_quimica_de_oxigeno_mg_o2_l       demanda_quimica_de_oxigeno_mg_o2_l -0.309   5.355 0.095
+solidos_suspendidos_totales_mg_ss_l     solidos_suspendidos_totales_mg_ss_l  0.307   5.288 0.094
+demanda_bioquimica_de_oxigeno_mg_o2_l demanda_bioquimica_de_oxigeno_mg_o2_l -0.267   3.992 0.071
+fosforo_total_mg_p_l                                   fosforo_total_mg_p_l  0.133   0.986 0.018
+> # 20. PUNTO F: EVALUACIÓN Y CONSTRUCCIÓN DE ÍNDICE PARCIAL
+> resumen_pc1 <- generar_tabla_sintesis(var_res, 1)
+> pc1_var_exp <- eigen_values[1, 2]
+> signos_pos <- sum(resumen_pc1$Coord > 0)
+> total_vars <- length(variables_acp)
+> cat("\n--- Punto F: Evaluación preliminar de índice sintético ---\n")
+
+--- Punto F: Evaluación preliminar de índice sintético ---
+> cat("Varianza retenida por PC1:", round(pc1_var_exp, 2), "%\n")
+Varianza retenida por PC1: 31.57 %
+> cat("Variables con carga positiva en PC1:", signos_pos, "de", total_vars, "\n")
+Variables con carga positiva en PC1: 6 de 7 
+> cat("\n--- Variables en PC1 para evaluación del índice ---\n")
+
+--- Variables en PC1 para evaluación del índice ---
+> print(resumen_pc1)
+                                                                   Variable  Coord Contrib  Cos2
+solidos_suspendidos_totales_mg_ss_l     solidos_suspendidos_totales_mg_ss_l  0.846  32.358 0.715
+turbiedad_unt                                                 turbiedad_unt  0.720  23.453 0.518
+demanda_bioquimica_de_oxigeno_mg_o2_l demanda_bioquimica_de_oxigeno_mg_o2_l  0.589  15.712 0.347
+demanda_quimica_de_oxigeno_mg_o2_l       demanda_quimica_de_oxigeno_mg_o2_l  0.547  13.519 0.299
+fosforo_total_mg_p_l                                   fosforo_total_mg_p_l  0.491  10.913 0.241
+conductividad_electrica_micro_s_cm       conductividad_electrica_micro_s_cm  0.277   3.477 0.077
+oxigeno_disuelto_mg_o2_l                           oxigeno_disuelto_mg_o2_l -0.112   0.568 0.013
+> # Diagnóstico académico: PC1 puede usarse como índice solo si resume una estructura común e interpretable.
+> if(pc1_var_exp >= 30 && signos_pos >= (total_vars - 1)) {
++   cat("=> DIAGNÓSTICO: PC1 muestra una estructura predominante de carga contaminante/particulada.\n")
++   cat("=> Es posible explorar un índice parcial basado en PC1, pero no un índice global de calidad del agua.\n")
++   cat("=> La decisión debe apoyarse en PC2, porque oxígeno disuelto y conductividad explican una dimensión ambiental diferente.\n")
++ } else {
++   cat("=> DIAGNÓSTICO: PC1 no presenta suficiente coherencia para construir un índice sintético robusto.\n")
++   cat("=> Se recomienda interpretar los ejes factoriales sin forzar un índice único.\n")
++ }
+=> DIAGNÓSTICO: PC1 muestra una estructura predominante de carga contaminante/particulada.
+=> Es posible explorar un índice parcial basado en PC1, pero no un índice global de calidad del agua.
+=> La decisión debe apoyarse en PC2, porque oxígeno disuelto y conductividad explican una dimensión ambiental diferente.
+> # Construcción del índice parcial a partir de la coordenada factorial Dim1.
+> # Se interpreta como índice parcial de carga contaminante/particulada, no como índice global.
+> indice_contaminacion <- data.frame(
++   Anio_Estacion = df_final_acp$anio_estacion,
++   Estacion = df_final_acp$estaciones,
++   PC1 = ind_res$coord[, 1]
++ ) %>%
++   mutate(
++     Indice_PC1_0_100 = 100 * (PC1 - min(PC1)) / (max(PC1) - min(PC1))
++   ) %>%
++   arrange(desc(Indice_PC1_0_100))
+> cat("\n--- Índice parcial de carga contaminante basado en PC1 ---\n")
+
+--- Índice parcial de carga contaminante basado en PC1 ---
+> cat("Interpretación: valores cercanos a 100 indican mayor carga contaminante/particulada según PC1.\n")
+Interpretación: valores cercanos a 100 indican mayor carga contaminante/particulada según PC1.
+> cat("Advertencia: este índice no representa la calidad global del agua; resume solo la estructura principal capturada por Dim1.\n")
+Advertencia: este índice no representa la calidad global del agua; resume solo la estructura principal capturada por Dim1.
+> print(head(indice_contaminacion %>% mutate(across(where(is.numeric), ~round(.x, 3))), 15))
+                  Anio_Estacion              Estacion   PC1 Indice_PC1_0_100
+922            2010_LA VICTORIA           LA VICTORIA 5.104          100.000
+225      1994_PASO DEL COMERCIO     PASO DEL COMERCIO 5.086           99.825
+316                2010_ANACARO               ANACARO 4.887           97.906
+1007            2010_MEDIACANOA            MEDIACANOA 4.819           97.245
+1002     2010_PASO DEL COMERCIO     PASO DEL COMERCIO 4.734           96.422
+1003         2010_PUERTO ISAACS         PUERTO ISAACS 4.691           96.009
+11   1990_ANTES INTERCEPTOR SUR ANTES INTERCEPTOR SUR 4.575           94.881
+1006                2010_YOTOCO                YOTOCO 4.478           93.942
+453     2010_PUENTE LA VIRGINIA    PUENTE LA VIRGINIA 4.458           93.750
+1004      2010_PASO DE LA TORRE      PASO DE LA TORRE 4.315           92.371
+701                2010_RIOFRIO               RIOFRIO 4.242           91.657
+1183       2013_PUENTE GUAYABAL       PUENTE GUAYABAL 3.923           88.577
+737        2010_PUENTE GUAYABAL       PUENTE GUAYABAL 3.911           88.462
+1005                 2010_VIJES                 VIJES 3.880           88.160
+1234     2014_PASO DEL COMERCIO     PASO DEL COMERCIO 3.877           88.127
+> # Resumen por estación para obtener una lectura agregada.
+> indice_por_estacion <- indice_contaminacion %>%
++   group_by(Estacion) %>%
++   summarise(
++     n_mediciones = n(),
++     indice_promedio = mean(Indice_PC1_0_100, na.rm = TRUE),
++     indice_maximo = max(Indice_PC1_0_100, na.rm = TRUE),
++     .groups = "drop"
++   ) %>%
++   arrange(desc(indice_promedio))
+> cat("\n--- Ranking agregado por estación según índice parcial promedio ---\n")
+
+--- Ranking agregado por estación según índice parcial promedio ---
+> print(head(indice_por_estacion %>% mutate(across(where(is.numeric), ~round(.x, 3))), 15))
+# A tibble: 15 × 4
+   Estacion              n_mediciones indice_promedio indice_maximo
+   <chr>                        <dbl>           <dbl>         <dbl>
+ 1 ANACARO                         92            57.6          97.9
+ 2 PUENTE LA VIRGINIA              89            57.5          93.8
+ 3 LA VICTORIA                     90            57.4         100  
+ 4 VIJES                           88            56.6          88.2
+ 5 PUENTE GUAYABAL                 92            56.6          88.6
+ 6 RIOFRIO                         90            56.3          91.7
+ 7 YOTOCO                          87            56.0          93.9
+ 8 MEDIACANOA                     100            55.9          97.2
+ 9 PASO DE LA TORRE                87            53.9          92.4
+10 PASO DEL COMERCIO               96            53.4          99.8
+11 PUERTO ISAACS                   91            51.7          96.0
+12 JUANCHITO                       87            48.0          84.5
+13 PUENTE HORMIGUERO               71            47.2          71.1
+14 ANTES INTERCEPTOR SUR           65            47.0          94.9
+15 PASO DE  LA TORRE                2            45.9          46.3
+> # 21. CIERRE DEL SCRIPT ANALÍTICO
+> cat("\n--- FASE ANALÍTICA (R) COMPLETADA ---\n")
+
+--- FASE ANALÍTICA (R) COMPLETADA ---
+> cat("El procesamiento de datos finalizó con éxito. Las tablas generadas en consola,\n")
+El procesamiento de datos finalizó con éxito. Las tablas generadas en consola,
+> cat("los gráficos factoriales y el índice parcial construido con PC1 constituyen\n")
+los gráficos factoriales y el índice parcial construido con PC1 constituyen
+> cat("los insumos requeridos para responder los puntos del Taller 1.\n")
+los insumos requeridos para responder los puntos del Taller 1.
+> 

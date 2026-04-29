@@ -16,7 +16,12 @@
 # Consolidación de dependencias necesarias para todo el ciclo analítico.
 if (!require("pacman")) install.packages("pacman")
 pacman::p_load(
-  tidyverse,    # Manipulación, fechas (stringr/lubridate) y visualización (ggplot2)
+  dplyr,        # Manipulación de datos
+  tidyr,        # Reestructuración de datos (pivot_longer/pivot_wider/separate)
+  purrr,        # Iteración funcional (map_df)
+  stringr,      # Manejo de texto (str_sub)
+  readr,        # Lectura de archivos CSV
+  ggplot2,      # Visualización
   janitor,      # Estandarización de nombres de columnas
   visdat,       # Análisis visual de datos faltantes
   skimr,        # Descriptivos estadísticos ampliados
@@ -27,10 +32,21 @@ pacman::p_load(
   factoextra    # Extracción y visualización de resultados factoriales
 )
 
+paquetes_requeridos <- c(
+  "dplyr", "tidyr", "stringr", "readr", "ggplot2", "janitor", "visdat",
+  "purrr", "skimr", "moments", "patchwork", "ggcorrplot", "FactoMineR", "factoextra"
+)
+
+paquetes_faltantes <- paquetes_requeridos[!vapply(paquetes_requeridos, requireNamespace, logical(1), quietly = TRUE)]
+if (length(paquetes_faltantes) > 0) {
+  stop("Faltan paquetes por instalar/cargar: ", paste(paquetes_faltantes, collapse = ", "))
+}
+
 # 1. LECTURA DEL DATASET CRUDO
 # Se fuerza la lectura como 'character' para evitar parsing incorrecto de formatos.
 file_path <- "Base de datos/Calidad_del_agua_del_Rio_Cauca_20260419.csv"
-raw_data <- read_csv(file_path, col_types = cols(.default = "c"))
+raw_data <- readr::read_csv(file_path,col_types = readr::cols(.default = "c")
+)
 
 # 2. AUDITORÍA INICIAL DE LA BASE DE DATOS
 cat("--- Dimensiones del dataset original ---\n")
@@ -38,7 +54,8 @@ print(dim(raw_data))
 
 # 3. LIMPIEZA Y NORMALIZACIÓN DE NOMBRES
 # Estandarización a snake_case.
-df_prep <- raw_data %>% clean_names()
+df_prep <- raw_data %>%
+  clean_names(replace = c("µ" = "micro", "°" = "grados"))
 
 # 4. CONVERSIÓN DE VARIABLES NUMÉRICAS
 # Corrección robusta para formatos atípicos (*10E, separador decimal con coma).
@@ -61,7 +78,7 @@ df_clean <- df_prep %>%
 # estación se interpreten equívocamente como el mismo "individuo" en el plano.
 df_clean <- df_clean %>%
   mutate(
-    anio = str_sub(fecha_de_muestreo, 1, 4),
+    anio = stringr::str_sub(fecha_de_muestreo, 1, 4),
     anio_estacion = paste(anio, estaciones, sep = "_")
   )
 
@@ -89,7 +106,7 @@ variables_acp <- c(
   "demanda_bioquimica_de_oxigeno_mg_o2_l", 
   "demanda_quimica_de_oxigeno_mg_o2_l",
   "oxigeno_disuelto_mg_o2_l", 
-  "conductividad_electrica_m_s_cm",
+  "conductividad_electrica_micro_s_cm",
   "fosforo_total_mg_p_l"
 )
 
@@ -134,7 +151,7 @@ print(p1_a); print(p1_b)
 # 10. PUNTO A: AUDITORÍA DE VALORES ATÍPICOS (CRITERIO TUKEY)
 outlier_audit <- df_analisis %>%
   select(where(is.numeric)) %>%
-  map_df(~{
+  purrr::map_df(~{
     q1 <- quantile(.x, 0.25, na.rm = TRUE); q3 <- quantile(.x, 0.75, na.rm = TRUE)
     iqr <- q3 - q1
     list(n_out = sum(.x < (q1-1.5*iqr) | .x > (q3+1.5*iqr), na.rm = TRUE))
@@ -175,27 +192,27 @@ print(p_heatmap)
 # 14. EJECUCIÓN DEL ACP NORMADO
 # Justificación: scale.unit = TRUE es obligatorio al tener métricas distintas (mg/L, UNT, mS/cm).
 # quali.sup = 1:2 proyecta anio_estacion y estaciones sin influir en la creación de los ejes.
-res_pca <- PCA(df_final_acp, quali.sup = 1:2, scale.unit = TRUE, graph = FALSE)
+res_pca <- FactoMineR::PCA(df_final_acp, quali.sup = 1:2, scale.unit = TRUE, graph = FALSE)
 
 # 15. ANÁLISIS DE VALORES PROPIOS E INERCIA
 eigen_values <- res_pca$eig
 cat("\n--- Tabla de Valores Propios e Inercia Capturada ---\n")
 print(round(eigen_values, 3))
 
-p_scree <- fviz_eig(res_pca, addlabels = TRUE, ylim = c(0, 60),
-                    title = "Scree Plot: Sedimentación de la Varianza")
+p_scree <- factoextra::fviz_eig(res_pca, addlabels = TRUE, ylim = c(0, 60),
+                                title = "Scree Plot: Sedimentación de la Varianza")
 print(p_scree)
 
 kaiser_n <- sum(eigen_values[, 1] > 1)
 cat("\n[Justificación] Retención de componentes: Según Kaiser (Lambda > 1), se retienen", kaiser_n, "componentes.\n")
 
 # 16. PUNTO B: NUBE DE INDIVIDUOS
-p_ind <- fviz_pca_ind(res_pca, geom.ind = "point", col.ind = "cos2", 
-                      gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-                      title = "Nube de Individuos: Plano Factorial 1-2")
+p_ind <- factoextra::fviz_pca_ind(res_pca, geom.ind = "point", col.ind = "cos2", 
+                                  gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+                                  title = "Nube de Individuos: Plano Factorial 1-2")
 print(p_ind)
 
-ind_res <- get_pca_ind(res_pca)
+ind_res <- factoextra::get_pca_ind(res_pca)
 df_individuos <- data.frame(
   Anio_Estacion = df_final_acp$anio_estacion,
   Dim1 = ind_res$coord[, 1],
@@ -208,15 +225,15 @@ cat("\n--- Punto B: Top 5 Individuos mejor representados en el plano (Mayor Cos2
 print(head(df_individuos, 5))
 
 # 17. PUNTO C: CÍRCULO DE CORRELACIONES
-p_var <- fviz_pca_var(res_pca, col.var = "contrib",
-                      gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-                      repel = TRUE, title = "Círculo de Correlaciones: Plano 1-2")
+p_var <- factoextra::fviz_pca_var(res_pca, col.var = "contrib",
+                                  gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+                                  repel = TRUE, title = "Círculo de Correlaciones: Plano 1-2")
 print(p_var)
 
 # 18. PUNTO D: BIPLOT E IDENTIFICACIÓN DE POSIBLES ATÍPICOS
-p_biplot <- fviz_pca_biplot(res_pca, geom.ind = "point", pointsize = 1.5,
-                            alpha.ind = 0.5, col.var = "black", repel = TRUE,
-                            title = "Biplot: Relación dual Individuos - Variables")
+p_biplot <- factoextra::fviz_pca_biplot(res_pca, geom.ind = "point", pointsize = 1.5,
+                                        alpha.ind = 0.5, col.var = "black", repel = TRUE,
+                                        title = "Biplot: Relación dual Individuos - Variables")
 print(p_biplot)
 
 # Atípicos definidos geométricamente por su lejanía al centro de gravedad.
@@ -235,7 +252,7 @@ cat("\n--- Punto D: Top 10 Posibles Atípicos Factoriales (Mayor distancia al or
 print(head(df_atipicos, 10))
 
 # 19. PUNTO E: SÍNTESIS CON CONTRIBUCIONES Y COSENOS CUADRADOS
-var_res <- get_pca_var(res_pca)
+var_res <- factoextra::get_pca_var(res_pca)
 
 generar_tabla_sintesis <- function(res, dim_n) {
   data.frame(
