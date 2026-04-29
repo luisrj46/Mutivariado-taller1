@@ -26,7 +26,19 @@ Como las variables tenian asimetria positiva severa y unidades diferentes, se ap
 
 Tiempo sugerido: 1 minuto.
 
-## Diapositiva 3. Exploracion y correlaciones
+## Diapositiva 3. Distribuciones de las variables
+
+Las distribuciones muestran asimetria positiva y valores extremos en las variables fisico-quimicas. Esto fue especialmente visible en DBO, DQO, fosforo total, oxigeno disuelto y conductividad.
+
+Por esta razon se aplico la transformacion `log1p`, que reduce el peso de valores extremos sin eliminar observaciones potencialmente relevantes.
+
+![Distribuciones fisico-quimicas grupo A](Graficos%20de%20resultados/distribuciones%20fisico-quimica_grupo_A.png)
+
+![Distribuciones fisico-quimicas grupo B](Graficos%20de%20resultados/distribuciones%20fisico-quimica_grupo_B.png)
+
+Tiempo sugerido: 1 minuto.
+
+## Diapositiva 4. Correlaciones principales
 
 La exploracion mostro alta heterogeneidad, especialmente en DBO, fosforo total y oxigeno disuelto.
 
@@ -42,7 +54,7 @@ Estas relaciones justifican el ACP porque muestran una estructura multivariada: 
 
 Tiempo sugerido: 1 minuto.
 
-## Diapositiva 4. Varianza explicada
+## Diapositiva 5. Varianza explicada
 
 Segun el criterio de Kaiser, se retuvieron **tres componentes** con valores propios mayores que 1.
 
@@ -58,7 +70,7 @@ El plano 1-2 permite interpretar graficamente los patrones principales, aunque l
 
 Tiempo sugerido: 1 minuto.
 
-## Diapositiva 5. Interpretacion de los ejes
+## Diapositiva 6. Interpretacion de los ejes
 
 El circulo de correlaciones permite interpretar los dos primeros componentes.
 
@@ -70,17 +82,27 @@ La **Dim 2** esta dominada por oxigeno disuelto y conductividad electrica, con s
 
 Tiempo sugerido: 1 minuto 20 segundos.
 
-## Diapositiva 6. Nube de individuos y biplot
+## Diapositiva 7. Nube de individuos
 
 La nube de individuos muestra observaciones espacio-temporales. Los puntos cercanos al origen tienen perfiles mas promedio; los puntos alejados tienen perfiles fisico-quimicos diferenciados.
 
+Los colores asociados al coseno cuadrado ayudan a identificar que observaciones estan mejor representadas en el plano factorial 1-2.
+
+![Nube de individuos](Graficos%20de%20resultados/Nube%20de%20individuos.png)
+
+Tiempo sugerido: 1 minuto.
+
+## Diapositiva 8. Biplot
+
 El biplot integra individuos y variables. Las observaciones ubicadas en la direccion de una variable tienden a presentar valores relativamente altos en esa variable.
+
+La lectura conjunta confirma que el lado asociado a carga particulada/organica se diferencia del eje de oxigenacion y conductividad.
 
 ![Biplot](Graficos%20de%20resultados/Relacion%20Dual%20individuos%20-%20variables.png)
 
-Tiempo sugerido: 1 minuto 20 segundos.
+Tiempo sugerido: 1 minuto.
 
-## Diapositiva 7. Datos atipicos y aportes
+## Diapositiva 9. Datos atipicos y aportes
 
 Los posibles atipicos se identificaron por mayor distancia al origen en el plano factorial. Entre los casos mas destacados estuvieron:
 
@@ -96,7 +118,7 @@ En contribuciones, la Dim 1 estuvo dominada por solidos suspendidos (**32,36 %**
 
 Tiempo sugerido: 1 minuto 20 segundos.
 
-## Diapositiva 8. Indice parcial
+## Diapositiva 10. Indice parcial
 
 Si es posible construir un indice, pero debe interpretarse como **indice parcial de carga contaminante/particulada**, no como indice global de calidad del agua.
 
@@ -110,7 +132,7 @@ Mayores promedios por estacion: ANACARO, PUENTE LA VIRGINIA, LA VICTORIA, VIJES 
 
 Tiempo sugerido: 1 minuto 20 segundos.
 
-## Diapositiva 9. Conclusiones
+## Diapositiva 11. Conclusiones
 
 1. El ACP redujo siete variables fisico-quimicas a dimensiones interpretables.
 2. La Dim 1 representa carga contaminante y particulada.

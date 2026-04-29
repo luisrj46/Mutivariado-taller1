@@ -67,6 +67,20 @@ LUIS FERNANDO MEZA RAMREZ
   \end{columns}
 \end{frame}
 
+\begin{frame}{Distribuciones de las variables}
+  \small
+  Las distribuciones muestran asimetría positiva y valores extremos. Por eso se aplicó \texttt{log1p} antes del ACP.
+
+  \begin{columns}[T]
+    \begin{column}{0.5\textwidth}
+      \img{Graficos de resultados/distribuciones fisico-quimica_grupo_A.png}{1.0}
+    \end{column}
+    \begin{column}{0.5\textwidth}
+      \img{Graficos de resultados/distribuciones fisico-quimica_grupo_B.png}{1.0}
+    \end{column}
+  \end{columns}
+\end{frame}
+
 \begin{frame}{Exploración y correlaciones}
   \begin{itemize}
     \item Alta heterogeneidad, especialmente en DBO, fósforo total y oxígeno disuelto.
@@ -107,7 +121,24 @@ LUIS FERNANDO MEZA RAMREZ
   \img{Graficos de resultados/Circulos de correlaciones Plano 1-2.png}{0.86}
 \end{frame}
 
-\begin{frame}{Individuos, biplot y atípicos}
+\begin{frame}{Nube de individuos}
+  \begin{columns}[T]
+    \begin{column}{0.52\textwidth}
+      \img{Graficos de resultados/Nube de individuos.png}{1.0}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \small
+      \begin{itemize}
+        \item Cada punto representa una observación espacio-temporal.
+        \item Puntos cercanos al origen: perfiles más promedio.
+        \item Puntos alejados: perfiles físico-químicos diferenciados.
+        \item El color por coseno cuadrado indica qué tan bien queda representado el individuo en el plano 1-2.
+      \end{itemize}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Biplot y atípicos}
   \begin{columns}[T]
     \begin{column}{0.52\textwidth}
       \img{Graficos de resultados/Relacion Dual individuos - variables.png}{1.0}
