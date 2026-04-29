@@ -11,7 +11,7 @@
 **Fuente de datos:** `Base de datos/Calidad_del_agua_del_Rio_Cauca_20260419.csv`  
 **Fecha de entrega:** Mayo 2 de 2026
 
-## Resumen ejecutivo
+## Resumen
 
 El Analisis de Componentes Principales aplicado a siete variables fisico-quimicas del Rio Cauca permitio resumir la informacion en tres componentes con valor propio mayor que 1. Estas tres dimensiones explican el **77,15 %** de la variabilidad total. La primera dimension representa un gradiente de carga contaminante y particulada, dominado por solidos suspendidos, turbiedad, DBO, DQO y fosforo total. La segunda dimension contrasta oxigeno disuelto y conductividad electrica, por lo que aporta una lectura ambiental complementaria.
 
