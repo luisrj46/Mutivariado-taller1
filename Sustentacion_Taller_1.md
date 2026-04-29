@@ -1,117 +1,219 @@
 # Sustentacion Taller 1. ACP calidad del agua del Rio Cauca
 
-Duracion maxima: 10 minutos
+Duracion maxima sugerida: 10 minutos  
+Base: Informe final `Informe_Taller_1.md` / `Informe_Taller_1.tex`
+
+**Integrantes:**  
+- JHONATAN ANDRES TAPIA CORDOBA  
+- JORGE ANDRES JARAMILLO NEME  
+- LUIS FERNANDO MEZA RAMREZ  
 
 ## Diapositiva 1. Titulo
 
 **Analisis de Componentes Principales aplicado a calidad del agua del Rio Cauca**
 
-Buenos dias. En esta sustentacion presentamos la aplicacion de ACP sobre una base real de calidad del agua del Rio Cauca. El objetivo fue resumir la informacion fisico-quimica, interpretar los principales gradientes ambientales, identificar observaciones atipicas y evaluar la construccion de un indice.
+Buenos dias. En esta sustentacion presentamos una aplicacion de Analisis de Componentes Principales sobre variables fisico-quimicas de calidad del agua del Rio Cauca. El objetivo fue resumir la informacion multivariada, interpretar los principales gradientes ambientales, identificar observaciones atipicas y evaluar si era posible construir un indice.
+
+**Importante:** El ACP permite pasar de varias variables correlacionadas a pocas dimensiones interpretables.
 
 Tiempo sugerido: 40 segundos.
 
 ## Diapositiva 2. Datos y preparacion
 
-La base original tenia 2368 registros y 56 variables. Se limpiaron nombres, se corrigieron formatos numericos y se construyo el identificador `anio_estacion`, para que cada individuo representara una combinacion entre ano y estacion de monitoreo.
+La base original contenia **2368 registros y 56 variables**. Primero se limpiaron nombres de columnas, se corrigieron formatos numericos y se normalizaron valores con coma decimal o notacion cientifica escrita como `*10E`.
 
-Tambien se revisaron faltantes. Algunas variables tenian 100 % de ausencia, asi que el analisis se enfoco en siete variables activas con relevancia ambiental y mejor disponibilidad.
+Tambien se construyo el identificador `anio_estacion`, que combina el ano de muestreo y la estacion. Esto permite que cada individuo represente una observacion espacio-temporal, no solo una estacion agregada.
 
-Tiempo sugerido: 1 minuto.
-
-## Diapositiva 3. Variables activas
-
-Las variables usadas fueron turbiedad, solidos suspendidos totales, DBO, DQO, oxigeno disuelto, conductividad electrica y fosforo total.
-
-Estas variables permiten capturar carga particulada, contaminacion organica/quimica, oxigenacion, presencia de iones y nutrientes. Como todas presentaban asimetria positiva fuerte, se aplico transformacion `log1p` y luego estandarizacion antes del ACP.
+Durante la auditoria se encontraron variables con 100 % de valores faltantes, por lo que fueron descartadas del ACP.
 
 Tiempo sugerido: 1 minuto.
 
-## Diapositiva 4. Exploracion descriptiva y correlaciones
+## Diapositiva 3. Variables activas y tratamiento
 
-En la exploracion descriptiva se observo alta variabilidad. Por ejemplo, DBO y fosforo total tuvieron coeficientes de variacion muy altos.
+Se seleccionaron siete variables activas:
 
-La correlacion mas importante fue entre turbiedad y solidos suspendidos totales, con r = 0,80. Tambien se encontro una relacion entre DBO y fosforo total, con r = 0,60. El oxigeno disuelto se relaciono negativamente con conductividad electrica, r = -0,54.
+- Turbiedad.
+- Solidos suspendidos totales.
+- DBO.
+- DQO.
+- Oxigeno disuelto.
+- Conductividad electrica.
+- Fosforo total.
 
-Mensaje clave: los datos muestran una estructura multivariada real, por eso el ACP es apropiado.
+Estas variables capturan carga particulada, contaminacion organica y quimica, oxigenacion, presencia de iones y nutrientes.
+
+Todas presentaron asimetria positiva severa, por eso se aplico transformacion `log1p`. Luego se estandarizaron porque las variables estaban en unidades diferentes. La matriz final usada en el ACP quedo con **1475 observaciones**, equivalentes al **62,29 %** de la base de analisis.
 
 Tiempo sugerido: 1 minuto.
 
-## Diapositiva 5. Varianza explicada
+## Diapositiva 4. Estadisticas descriptivas y correlaciones
 
-El ACP se realizo sobre datos transformados y estandarizados. Con el criterio de Kaiser se retuvieron tres componentes, porque tuvieron valores propios mayores que 1.
+La exploracion descriptiva mostro alta heterogeneidad. Los coeficientes de variacion fueron especialmente altos en DBO, fosforo total y oxigeno disuelto.
 
-La Dim 1 explico 31,57 %, la Dim 2 explico 25,43 % y la Dim 3 explico 20,15 %. En conjunto, las tres dimensiones explicaron 77,15 % de la variabilidad total. El plano 1-2 explico aproximadamente 57 %.
+En la matriz de correlacion transformada se destacaron tres relaciones:
+
+- Turbiedad y solidos suspendidos totales: **r = 0,80**.
+- DBO y fosforo total: **r = 0,60**.
+- Oxigeno disuelto y conductividad electrica: **r = -0,54**.
+
+Esto sugiere que los datos tienen estructura multivariada: una dimension de carga particulada/organica y otra asociada al contraste entre oxigenacion y conductividad.
+
+![Distribuciones fisico-quimicas grupo A](Graficos%20de%20resultados/distribuciones%20fisico-quimica_grupo_A.png)
+
+![Distribuciones fisico-quimicas grupo B](Graficos%20de%20resultados/distribuciones%20fisico-quimica_grupo_B.png)
+
+![Matriz de correlacion](Graficos%20de%20resultados/Matriz%20de%20correlacion:%20Espacion%20de%20variable.png)
+
+Tiempo sugerido: 1 minuto.
+
+## Diapositiva 5. Varianza explicada por el ACP
+
+El ACP se realizo sobre variables transformadas y estandarizadas. Segun el criterio de Kaiser, se retuvieron **tres componentes** con valores propios mayores que 1.
+
+Resultados principales:
+
+- Dim 1: **31,57 %** de la varianza.
+- Dim 2: **25,43 %** de la varianza.
+- Dim 3: **20,15 %** de la varianza.
+- Acumulado en tres dimensiones: **77,15 %**.
+- Plano 1-2: **57,00 %**.
+
+El plano 1-2 es util para interpretar graficamente, aunque existe una tercera dimension con informacion adicional.
+
+![Sedimentacion de varianza](Graficos%20de%20resultados/Sedimentacion%20de%20varianza.png)
 
 Tiempo sugerido: 1 minuto.
 
 ## Diapositiva 6. Nube de individuos
 
-La nube de individuos muestra observaciones espacio-temporales. Los puntos cercanos al origen tienen perfiles mas promedio, mientras que los puntos alejados representan perfiles mas diferenciados.
+La nube de individuos muestra la posicion de las observaciones espacio-temporales en el plano factorial 1-2.
 
-Los individuos mejor representados en el plano incluyeron 2013_ANTES SUAREZ, 2011_PASO DEL COMERCIO, 1997_PUENTE HORMIGUERO, 1998_ANTES RIO OVEJAS y 2000_PASO DE LA BOLSA. Estos tienen cosenos cuadrados altos, por lo que su posicion en el plano es confiable.
+Los puntos cerca del origen representan perfiles mas promedio. Los puntos alejados representan perfiles fisico-quimicos mas diferenciados.
+
+Entre los individuos mejor representados en el plano, por mayor coseno cuadrado, estuvieron:
+
+- 2013_ANTES SUAREZ.
+- 2011_PASO DEL COMERCIO.
+- 1997_PUENTE HORMIGUERO.
+- 1998_ANTES RIO OVEJAS.
+- 2000_PASO DE LA BOLSA.
+
+Su posicion se puede interpretar con mayor confianza porque tienen cosenos cuadrados altos.
+
+![Nube de individuos](Graficos%20de%20resultados/Nube%20de%20individuos.png)
 
 Tiempo sugerido: 1 minuto.
 
 ## Diapositiva 7. Circulo de correlaciones
 
-El circulo de correlaciones permitio interpretar los ejes.
+El circulo de correlaciones permite interpretar que representa cada eje.
 
-La Dim 1 esta dominada por solidos suspendidos, turbiedad, DBO, DQO y fosforo total. Por eso la interpretamos como un gradiente de carga contaminante y particulada.
+La **Dim 1** esta dominada por:
 
-La Dim 2 esta dominada por oxigeno disuelto y conductividad electrica, en sentidos opuestos. Esto sugiere un contraste entre oxigenacion y carga ionica/conductiva.
+- Solidos suspendidos totales.
+- Turbiedad.
+- DBO.
+- DQO.
+- Fosforo total.
 
-Tiempo sugerido: 1 minuto.
+Por eso se interpreta como un **gradiente de carga contaminante, organica y particulada**.
 
-## Diapositiva 8. Biplot y atipicos
+La **Dim 2** esta dominada por oxigeno disuelto y conductividad electrica, con signos opuestos. Por eso representa un **contraste entre oxigenacion e influencia ionica/conductiva**.
 
-El biplot integra individuos y variables. Las observaciones ubicadas en la direccion de una variable tienden a tener valores relativamente altos en esa variable.
-
-Los posibles atipicos se identificaron por distancia al origen. Entre los mas destacados estuvieron 1993_JUANCHITO, 2010_MEDIACANOA, 2010_PASO DEL COMERCIO, 2010_PUERTO ISAACS y 2010_JUANCHITO.
-
-Es importante aclarar que no se eliminan automaticamente: pueden representar eventos reales o condiciones ambientales particulares.
-
-Tiempo sugerido: 1 minuto.
-
-## Diapositiva 9. Indice parcial
-
-La pregunta era si se podia construir un indice. La respuesta es si, pero como indice parcial, no como indice global de calidad del agua.
-
-La razon es que PC1 explica 31,57 % y tiene una interpretacion coherente de carga contaminante/particulada. Sin embargo, PC2 contiene informacion importante sobre oxigeno disuelto y conductividad. Entonces usar solo PC1 perderia parte de la calidad ambiental.
-
-El indice se normalizo de 0 a 100. Valores altos indican mayor carga contaminante/particulada segun PC1. Las estaciones con mayor promedio fueron ANACARO, PUENTE LA VIRGINIA, LA VICTORIA, VIJES y PUENTE GUAYABAL.
+![Circulo de correlaciones](Graficos%20de%20resultados/Circulos%20de%20correlaciones%20Plano%201-2.png)
 
 Tiempo sugerido: 1 minuto.
 
-## Diapositiva 10. Conclusiones
+## Diapositiva 8. Biplot y datos atipicos
+
+El biplot integra individuos y variables en una misma representacion. Las observaciones ubicadas en la direccion de una variable tienden a presentar valores relativamente altos en esa variable.
+
+Para identificar posibles atipicos se uso la distancia al origen en el plano factorial. Los casos mas alejados fueron:
+
+- 1993_JUANCHITO.
+- 2010_MEDIACANOA.
+- 2010_PASO DEL COMERCIO.
+- 2010_PUERTO ISAACS.
+- 2010_JUANCHITO.
+- 2010_YOTOCO.
+
+Estos registros no se deben eliminar automaticamente. Pueden representar eventos reales de contaminacion, cambios hidrologicos o condiciones ambientales particulares.
+
+![Biplot](Graficos%20de%20resultados/Relacion%20Dual%20individuos%20-%20variables.png)
+
+Tiempo sugerido: 1 minuto.
+
+## Diapositiva 9. Sintesis con contribuciones y cosenos
+
+El aporte promedio esperado por variable en cada dimension es **14,29 %**.
+
+En la Dim 1, las mayores contribuciones fueron:
+
+- Solidos suspendidos totales: **32,36 %**.
+- Turbiedad: **23,45 %**.
+- DBO: **15,71 %**.
+
+Estas variables tambien tienen buenos cosenos cuadrados en la Dim 1, especialmente solidos suspendidos y turbiedad, lo que confirma que ese eje representa carga particulada y contaminante.
+
+En la Dim 2 dominaron:
+
+- Oxigeno disuelto: **41,02 %**.
+- Conductividad electrica: **32,98 %**.
+
+Esto confirma que la Dim 2 aporta una lectura distinta y complementaria.
+
+Tiempo sugerido: 1 minuto.
+
+## Diapositiva 10. Indice parcial
+
+La pregunta del taller era si era posible construir un indice. La respuesta es: **si, pero como indice parcial**, no como indice global de calidad del agua.
+
+La Dim 1 explica **31,57 %** y tiene una interpretacion ambiental coherente: carga contaminante/particulada. Por eso se construyo un indice normalizado de 0 a 100 a partir de la coordenada PC1.
+
+Valores cercanos a 100 indican mayor carga contaminante/particulada segun PC1.
+
+Los mayores valores individuales fueron:
+
+- 2010_LA VICTORIA.
+- 1994_PASO DEL COMERCIO.
+- 2010_ANACARO.
+- 2010_MEDIACANOA.
+- 2010_PASO DEL COMERCIO.
+
+Las estaciones con mayor indice promedio fueron ANACARO, PUENTE LA VIRGINIA, LA VICTORIA, VIJES y PUENTE GUAYABAL.
+
+Tiempo sugerido: 1 minuto.
+
+## Diapositiva 11. Conclusiones
 
 Como conclusiones principales:
 
-El ACP permitio reducir siete variables fisico-quimicas a dimensiones interpretables.
+1. El ACP permitio resumir siete variables fisico-quimicas en dimensiones interpretables.
+2. La Dim 1 representa carga contaminante y particulada.
+3. La Dim 2 complementa la lectura mediante el contraste entre oxigeno disuelto y conductividad electrica.
+4. Se identificaron observaciones extremas que pueden ser ambientalmente relevantes.
+5. Si es posible construir un indice, pero debe interpretarse como indice parcial de carga contaminante, no como indice global de calidad del agua.
 
-La Dim 1 representa carga contaminante y particulada.
-
-La Dim 2 complementa la interpretacion con oxigeno disuelto y conductividad electrica.
-
-Se identificaron observaciones extremas que pueden ser relevantes ambientalmente.
-
-Se construyo un indice parcial basado en PC1, util para ordenar observaciones y estaciones, pero no suficiente para representar toda la calidad del agua.
+El principal aporte del ACP fue mostrar que la calidad del agua del Rio Cauca no se resume completamente en un solo eje; se requiere leer conjuntamente la carga contaminante y las condiciones de oxigenacion/conductividad.
 
 Tiempo sugerido: 1 minuto.
 
 ## Preguntas probables del profesor y respuestas breves
 
-**Por que hicieron transformacion log1p?**  
-Porque todas las variables seleccionadas presentaban asimetria positiva severa y valores extremos. La transformacion reduce el peso excesivo de esos valores y mejora la lectura del ACP.
+**Por que aplicaron transformacion log1p?**  
+Porque todas las variables seleccionadas presentaban asimetria positiva severa y valores extremos. La transformacion reduce el peso excesivo de esos valores y mejora la lectura factorial.
 
 **Por que estandarizaron las variables?**  
-Porque estaban en unidades diferentes. Sin estandarizacion, las variables con mayor escala numerica dominarian los componentes.
+Porque estaban medidas en unidades distintas. Sin estandarizacion, las variables con mayor escala numerica podrian dominar artificialmente el ACP.
 
-**Por que no construyeron un indice global?**  
-Porque PC1 no recoge toda la estructura ambiental. PC2 contiene informacion relevante de oxigeno disuelto y conductividad, por lo que un indice unico basado solo en PC1 seria incompleto.
+**Por que se retuvieron tres componentes?**  
+Porque segun el criterio de Kaiser, tres componentes tuvieron valores propios mayores que 1. En conjunto explicaron el 77,15 % de la variabilidad total.
+
+**Por que el indice no es global?**  
+Porque PC1 resume principalmente carga contaminante/particulada, pero PC2 contiene informacion importante sobre oxigeno disuelto y conductividad. Usar solo PC1 perderia esa dimension ambiental.
 
 **Que significa un atipico en el ACP?**  
 Es una observacion alejada del centro del plano factorial. No necesariamente es un error; puede ser una condicion ambiental extrema o un evento real.
 
-**Cual es el principal hallazgo?**  
-Que el comportamiento multivariado se organiza principalmente en dos lecturas: una de carga contaminante/particulada y otra de oxigenacion frente a conductividad.
-
+**Cual es el hallazgo mas importante?**  
+Que la estructura multivariada del Rio Cauca se organiza principalmente en dos lecturas: carga contaminante/particulada y contraste entre oxigenacion y conductividad.

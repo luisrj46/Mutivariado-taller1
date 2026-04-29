@@ -3,6 +3,11 @@
 **Curso:** Analisis Multivariado  
 **Programa:** Maestria en Inteligencia Artificial y Ciencia de Datos  
 **Tema:** Analisis de Componentes Principales aplicado a calidad del agua del Rio Cauca  
+**Integrantes:**  
+- JHONATAN ANDRES TAPIA CORDOBA  
+- JORGE ANDRES JARAMILLO NEME  
+- LUIS FERNANDO MEZA RAMREZ  
+
 **Fuente de datos:** `Base de datos/Calidad_del_agua_del_Rio_Cauca_20260419.csv`  
 **Fecha de entrega:** Mayo 2 de 2026
 
