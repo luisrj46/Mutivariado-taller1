@@ -1,0 +1,196 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{hyperref}
+
+\usetheme{Madrid}
+\usecolortheme{default}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{caption}[numbered]
+
+\title[ACP calidad del agua]{Análisis de Componentes Principales aplicado a calidad del agua del Río Cauca}
+\subtitle{Taller 1. Análisis Multivariado}
+\author[J. Tapia, J. Jaramillo, L. Meza]{
+JHONATAN ANDRES TAPIA CORDOBA\\
+JORGE ANDRES JARAMILLO NEME\\
+LUIS FERNANDO MEZA RAMREZ
+}
+\institute{Maestría en Inteligencia Artificial y Ciencia de Datos}
+\date{Mayo 2 de 2026}
+
+\newcommand{\img}[2]{
+  \begin{center}
+    \includegraphics[width=#2\textwidth,height=0.58\textheight,keepaspectratio]{\detokenize{#1}}
+  \end{center}
+}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\begin{frame}{Objetivo y alcance}
+  \begin{itemize}
+    \item Aplicar ACP sobre variables físico-químicas de calidad del agua del Río Cauca.
+    \item Resumir la información multivariada en dimensiones interpretables.
+    \item Identificar patrones, observaciones atípicas y posibilidad de construir un índice.
+  \end{itemize}
+
+  \vspace{0.25cm}
+  \textbf{Idea central:} la calidad del agua no se resume completamente en una sola variable ni en un solo eje factorial.
+\end{frame}
+
+\begin{frame}{Datos y preparación}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \begin{itemize}
+        \item Base original: \textbf{2368 registros y 56 variables}.
+        \item Limpieza de nombres y formatos numéricos.
+        \item Variables sin información útil fueron descartadas.
+        \item Individuo: combinación \texttt{anio\_estacion}.
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{itemize}
+        \item Variables activas: turbiedad, SST, DBO, DQO, OD, conductividad y fósforo.
+        \item Transformación \texttt{log1p} por asimetría positiva severa.
+        \item Estandarización por unidades diferentes.
+        \item Matriz final: \textbf{1475 observaciones} (\textbf{62,29 \%}).
+      \end{itemize}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Exploración y correlaciones}
+  \begin{itemize}
+    \item Alta heterogeneidad, especialmente en DBO, fósforo total y oxígeno disuelto.
+    \item Turbiedad y sólidos suspendidos totales: \textbf{r = 0,80}.
+    \item DBO y fósforo total: \textbf{r = 0,60}.
+    \item Oxígeno disuelto y conductividad eléctrica: \textbf{r = -0,54}.
+  \end{itemize}
+
+  \img{Graficos de resultados/Matriz de correlacion: Espacion de variable.png}{0.88}
+\end{frame}
+
+\begin{frame}{Varianza explicada}
+  \begin{columns}[T]
+    \begin{column}{0.42\textwidth}
+      \begin{itemize}
+        \item Criterio de Kaiser: \textbf{3 componentes}.
+        \item Dim 1: \textbf{31,57 \%}.
+        \item Dim 2: \textbf{25,43 \%}.
+        \item Dim 3: \textbf{20,15 \%}.
+        \item Acumulado: \textbf{77,15 \%}.
+        \item Plano 1-2: \textbf{57,00 \%}.
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.58\textwidth}
+      \img{Graficos de resultados/Sedimentacion de varianza.png}{1.0}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Interpretación de los ejes}
+  \begin{itemize}
+    \item \textbf{Dim 1:} dominada por sólidos suspendidos, turbiedad, DBO, DQO y fósforo total.
+    \item Interpretación: \textbf{gradiente de carga contaminante, orgánica y particulada}.
+    \item \textbf{Dim 2:} dominada por oxígeno disuelto y conductividad eléctrica en sentidos opuestos.
+    \item Interpretación: \textbf{contraste entre oxigenación e influencia iónica/conductiva}.
+  \end{itemize}
+
+  \img{Graficos de resultados/Circulos de correlaciones Plano 1-2.png}{0.86}
+\end{frame}
+
+\begin{frame}{Individuos, biplot y atípicos}
+  \begin{columns}[T]
+    \begin{column}{0.52\textwidth}
+      \img{Graficos de resultados/Relacion Dual individuos - variables.png}{1.0}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \small
+      \begin{itemize}
+        \item El biplot integra individuos y variables.
+        \item Puntos alejados del origen tienen perfiles diferenciados.
+        \item Posibles atípicos factoriales:
+          \begin{itemize}
+            \item 1993\_JUANCHITO.
+            \item 2010\_MEDIACANOA.
+            \item 2010\_PASO DEL COMERCIO.
+            \item 2010\_PUERTO ISAACS.
+            \item 2010\_JUANCHITO.
+          \end{itemize}
+      \end{itemize}
+      No se eliminan automáticamente: pueden ser eventos ambientales reales.
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Contribuciones y cosenos}
+  \begin{columns}[T]
+    \begin{column}{0.5\textwidth}
+      \textbf{Dim 1: carga contaminante}
+      \begin{itemize}
+        \item Sólidos suspendidos: \textbf{32,36 \%}.
+        \item Turbiedad: \textbf{23,45 \%}.
+        \item DBO: \textbf{15,71 \%}.
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.5\textwidth}
+      \textbf{Dim 2: oxigenación/conductividad}
+      \begin{itemize}
+        \item Oxígeno disuelto: \textbf{41,02 \%}.
+        \item Conductividad eléctrica: \textbf{32,98 \%}.
+      \end{itemize}
+    \end{column}
+  \end{columns}
+
+  \vspace{0.3cm}
+  \textbf{Lectura:} los cosenos cuadrados confirman que Dim 1 y Dim 2 representan fenómenos ambientales distintos y complementarios.
+\end{frame}
+
+\begin{frame}{Índice parcial}
+  \begin{itemize}
+    \item Sí es posible construir un índice, pero como \textbf{índice parcial de carga contaminante/particulada}.
+    \item No debe interpretarse como índice global de calidad del agua.
+    \item PC1 explica \textbf{31,57 \%}; PC2 conserva información relevante sobre oxígeno disuelto y conductividad.
+  \end{itemize}
+
+  \[
+    \text{Indice\_PC1\_0\_100} =
+    100 \times \frac{PC1 - \min(PC1)}{\max(PC1) - \min(PC1)}
+  \]
+
+  \small
+  Mayores valores: 2010\_LA VICTORIA, 1994\_PASO DEL COMERCIO, 2010\_ANACARO, 2010\_MEDIACANOA y 2010\_PASO DEL COMERCIO.\\
+  Mayores promedios por estación: ANACARO, PUENTE LA VIRGINIA, LA VICTORIA, VIJES y PUENTE GUAYABAL.
+\end{frame}
+
+\begin{frame}{Conclusiones}
+  \begin{enumerate}
+    \item El ACP resumió siete variables físico-químicas en tres componentes que explican \textbf{77,15 \%}.
+    \item La Dim 1 representa carga contaminante y particulada.
+    \item La Dim 2 complementa la lectura mediante oxígeno disuelto y conductividad eléctrica.
+    \item Se identificaron observaciones extremas potencialmente relevantes.
+    \item El índice construido es útil para ordenar observaciones y estaciones, pero es \textbf{parcial}.
+  \end{enumerate}
+
+  \vspace{0.25cm}
+  \textbf{Mensaje final:} la calidad del agua del Río Cauca debe leerse conjuntamente desde carga contaminante y condiciones de oxigenación/conductividad.
+\end{frame}
+
+\begin{frame}{Preguntas probables}
+  \small
+  \textbf{¿Por qué log1p?} Por asimetría positiva severa y valores extremos.\\[0.22cm]
+  \textbf{¿Por qué estandarizar?} Porque las variables estaban en unidades distintas.\\[0.22cm]
+  \textbf{¿Por qué tres componentes?} Porque tres valores propios fueron mayores que 1 y explicaron 77,15 \%.\\[0.22cm]
+  \textbf{¿Por qué el índice no es global?} Porque PC2 contiene información ambiental relevante no resumida por PC1.\\[0.22cm]
+  \textbf{¿Qué significa un atípico en ACP?} Una observación alejada del centro factorial; no necesariamente un error.
+\end{frame}
+
+\end{document}
